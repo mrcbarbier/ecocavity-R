@@ -38,7 +38,7 @@ measure_parameters <- function(r,A,D,PK=TRUE,correlations=TRUE,plotK=FALSE)
   alpha <- A / rep(D, each = nrow(A))
   S <- length(K)
   if( mean(alpha)>1){
-    print("WARNING: All interactions are strong (A/D>1). Predictions will not be accurate.")
+    print("WARNING: Average interactions are strong (A/D>1). Predictions will not be accurate.")
   }
   else if (max(alpha)>1){
     if (max(alpha)>5){
@@ -131,7 +131,7 @@ prediction <- function(parameters,correlations=TRUE,FR=FALSE)
     corrKA <- correl[1]
     sigrow <- correl[2]
     var0 <- PK$stdK^2 +sigrow^2 * (S-1)*(x[1] *x[2])^2 - 2*x[1]*x[2]*corrKA + zparam[2]
-    return(c(mean0/u,var0/u,u))
+    return(c(mean0/u,var0/u^2,u))
   }
 
   erfmom <- function(mom,mean0,var0){
@@ -203,20 +203,21 @@ prediction <- function(parameters,correlations=TRUE,FR=FALSE)
     ss <- list(root= c( 1,1,1,1),f.root=(100)  )
     failure <- function(s){ max(abs(s$f.root))>0.01  }
     trials=0
-    while (failure(ss) & trials<maxtrials ){
-      if (sig>.8 & trials >0){
-        x0 <- solve_system(S,mu,sig/1.01,gam,PK,correl,maxtrials=2)
+    if ((sig>.8 | mu>5.) & trials >0){
+      x0 <- solve_system(S,mu/1.1,sig/1.01,gam,PK,correl,maxtrials=2)
+    }
+    else{
+      if (sig>0.1){
+        x0 <- solve_system(S,mu/1.1,sig/1.1,0,PK,correl,maxtrials=20)
       }
       else{
-        if (sig>0.1){
-          x0 <- solve_system(S,mu,0.1,0,PK,correl,maxtrials=20)
-        }
-        else{
-          x0 <- meanfield(S,mu,PK)
-        }
-        }
-      try( ss <- multiroot(f = model, start = x0, positive=TRUE) ,silent=FALSE)
+        x0 <- meanfield(S,mu,PK)
+      }
+    }
+    while (failure(ss) & trials<maxtrials ){
+      try( ss <- multiroot(f = model, start =  x0 * runif(4, .8,1.2), positive=FALSE) ,silent=FALSE)
       trials <- trials +1
+      
     }
     if (failure(ss)){
       return( c(0,0,0,0) )
